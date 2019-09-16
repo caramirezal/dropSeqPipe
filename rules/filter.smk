@@ -83,7 +83,9 @@ rule repair:
     log:
         '{results_dir}/logs/bbmap/{sample}_repair.txt'
     params:
-        memory='{}g'.format(int(config['LOCAL']['memory'].rstrip('g')) )
+        #memory='{}g'.format(int(config['LOCAL']['memory'].rstrip('g')))
+        memory='120g'
+        
     conda: '../envs/bbmap.yaml'
     threads: 4
     shell:
@@ -95,6 +97,15 @@ rule repair:
         out2={output.R2}\
         repair=t\
         threads={threads} 2> {log}"""
+
+rule sort_fastq:
+    input:
+        R1=temp('{results_dir}/samples/{sample}/trimmmed_repaired_R1.fastq.gz')
+    output:
+        R1='{results_dir}/samples/{sample}/trimmmed_sorted_R1.fastq.gz'
+    threads: 24
+    shell:
+        """zcat {input.R1} | fastq-sort --idn  | pigz -p {threads} -c > {output.R1} """
 
 rule detect_barcodes:
     input:

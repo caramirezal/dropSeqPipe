@@ -26,41 +26,46 @@ def parse_barcodes(fastq_parser, query_name, read_barcodes, barcodes_struct):
 			R1_id = fastq_R1.id[:fastq_R1.id.find("/")]
 		else:
 			R1_id = fastq_R1.id
-		read_barcodes[R1_id]['XC'] = str(fastq_R1.seq)[barcodes_struct['BC_start']:barcodes_struct['BC_end']]
-		read_barcodes[R1_id]['XM'] = str(fastq_R1.seq)[barcodes_struct['UMI_start']:barcodes_struct['UMI_end']]
-		if(read_barcodes[R1_id]['XM']==''):
-			sys.SystemExit('UMI empty for read {}.\n The barcode is: {}.\nWhole entry is:{}'.format(R1_id, fastq_R1.seq,fastq_R1))
+		read_barcodes[R1_id] = str(fastq_R1.seq)
+		#read_barcodes[R1_id].append(str(fastq_R1.seq)[barcodes_struct['BC_start']:barcodes_struct['BC_end']])
+		#read_barcodes[R1_id].append(str(fastq_R1.seq)[barcodes_struct['UMI_start']:barcodes_struct['UMI_end']])
 		if (R1_id == query_name):
 			return(fastq_parser,read_barcodes)
-	return(fastq_parser,read_barcodes)
+	raise SystemExit('Read {} from mapped file is missing in reference fastq file!'.format(bam_read.query_name))
+	os.remove(snakemake.output[0])
 	
-infile_bam = pysam.AlignmentFile(snakemake.input[0], "rb")
+infile_bam = pysam.AlignmentFile(snakemake.input[1], "rb")
 
-fastq_parser = SeqIO.parse(gzip.open(snakemake.input[1], "rt"), "fastq")
+fastq_parser = SeqIO.parse(gzip.open(snakemake.input[0], "rt"), "fastq")
 
 outfile = pysam.AlignmentFile(snakemake.output[0], "wb", template=infile_bam)
 
-read_barcodes = defaultdict(lambda :{'XC':'','XM':''})
+#read_barcodes = defaultdict(lambda :{'XC':'','XM':''})
+read_barcodes = {}
 
 for bam_read in infile_bam:
+	bam_id = bam_read.query_name
 	if(discard_secondary_alignements & bam_read.is_secondary):
 		continue
-	if (bam_read.query_name) in read_barcodes:
-		current_barcodes = read_barcodes.pop(bam_read.query_name)
-		tags = bam_read.get_tags()
-		tags.extend([
-			('XC', current_barcodes['XC'],'Z'),
-			('XM', current_barcodes['XM'],'Z')])
-		bam_read.set_tags(tags)
-	else:
-		fastq_parser,read_barcodes = parse_barcodes(fastq_parser, bam_read.query_name, read_barcodes, barcodes_struct)
-		if (bam_read.query_name) not in read_barcodes:
-			raise SystemExit('Read {} from mapped file is missing in reference fastq file!'.format(bam_read.query_name))
-			os.remove(snakemake.output[0])
-		current_barcodes = read_barcodes.pop(bam_read.query_name)
-		tags = bam_read.get_tags()
-		tags.extend([
-			('XC', current_barcodes['XC'],'Z'),
-			('XM', current_barcodes['XM'],'Z')])
-		bam_read.set_tags(tags)
+	#if (bam_read.query_name) not in read_barcodes:
+	not_found = True
+	while(not_found):
+		new_seq = next(fastq_parser)
+		if '/' in new_seq.id:
+			R1_id = new_seq.id[:new_seq.id.find("/")]
+		else:
+			R1_id = new_seq.id
+		if bam_id == R1_id:
+			not_found = False
+			current_barcodes = str(new_seq.seq)
+		#else:
+				#read_barcodes[R1_id] = str(new_seq.seq)
+	#else:
+		#fastq_parser,read_barcodes = parse_barcodes(fastq_parser, bam_read.query_name, read_barcodes, barcodes_struct)
+		#current_barcodes = read_barcodes.pop(bam_id)
+	tags = bam_read.get_tags()
+	tags.extend([
+		('XC', current_barcodes[barcodes_struct['BC_start']:barcodes_struct['BC_end']],'Z'),
+		('XM', current_barcodes[barcodes_struct['UMI_start']:barcodes_struct['UMI_end']],'Z')])
+	bam_read.set_tags(tags)
 	outfile.write(bam_read)

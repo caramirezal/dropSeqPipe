@@ -30,7 +30,8 @@ rule STAR_align:
                 --outFilterMismatchNoverReadLmax {}\
                 --outFilterMatchNmin {}\
                 --outFilterScoreMinOverLread {}\
-                --outFilterMatchNminOverLread {}""".format(
+                --outFilterMatchNminOverLread {}\
+                --outSAMmultNmax 1""".format(
                 config['MAPPING']['STAR']['outFilterMismatchNmax'],
                 config['MAPPING']['STAR']['outFilterMismatchNoverLmax'],
                 config['MAPPING']['STAR']['outFilterMismatchNoverReadLmax'],
@@ -91,10 +92,20 @@ rule pigz_unmapped:
     shell:
         """pigz -p 4 {input}"""
 
+rule sort_bam:
+    input:
+        mapped='{results_dir}/samples/{sample}/Aligned.out.bam'
+    output:
+        '{results_dir}/samples/{sample}/Aligned.sorted.bam'
+    threads: 24
+    shell:
+        """samtools sort -n --threads {threads} {input.mapped} --output-fmt BAM -o {output}"""
+
+
 rule MergeBamAlignment:
     input:
-        mapped='{results_dir}/samples/{sample}/Aligned.out.bam',
-        R1_ref = '{results_dir}/samples/{sample}/trimmmed_repaired_R1.fastq.gz'
+        R1_ref = '{results_dir}/samples/{sample}/trimmmed_sorted_R1.fastq.gz',
+        mapped_sorted = '{results_dir}/samples/{sample}/Aligned.sorted.bam'
     output:
         temp('{results_dir}/samples/{sample}/Aligned.merged.bam')
     params:
@@ -110,10 +121,19 @@ rule MergeBamAlignment:
 # Note: rule repair_barcodes (cell_barcodes.smk) creates Aligned.repaired.bam
 # this is using barcode information (i.e. dependent on expected_cells in config.yaml)
 
+rule sort_bam_alignement:
+    input:
+        mapped='{results_dir}/samples/{sample}/Aligned.merged.bam'
+    output:
+        '{results_dir}/samples/{sample}/Aligned.sorted_align.bam'
+    threads: 24
+    shell:
+        """samtools sort --threads {threads} {input.mapped} --output-fmt BAM -o {output}"""
+
 
 rule TagReadWithGeneExon:
     input:
-        data='{results_dir}/samples/{sample}/Aligned.repaired.bam',
+        data='{results_dir}/samples/{sample}/Aligned.sorted_align.bam',
         refFlat=expand("{ref_path}/{species}_{build}_{release}/curated_annotation.refFlat",
             ref_path=config['META']['reference-directory'],
             species=species,

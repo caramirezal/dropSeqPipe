@@ -20,3 +20,15 @@ create_star_index:
     mem: 64g
     output: "logs/cluster/{rule}.out"
     error: "logs/cluster/{rule}.err"
+repair:
+    time: "05:00:00"
+    mem: 100g
+    output: "logs/cluster/{rule}.{wildcards.sample}.out"
+    error: "logs/cluster/{rule}.{wildcards.sample}.err"
+    n: '{threads}'
+MergeBamAlignment:
+    time: "10:00:00"
+    mem: 120g
+    output: "logs/cluster/{rule}.{wildcards.sample}.out"
+    error: "logs/cluster/{rule}.{wildcards.sample}.err"
+    n: "{threads}"
