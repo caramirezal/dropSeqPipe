@@ -59,7 +59,7 @@ p2 <- ggplot(mydata_long_pct, aes(x = READ_GROUP, y = fraction, fill = read_over
   geom_bar(stat = "identity") +
   labs(x = "STAMPS", y = "%Bases") +
   scale_y_continuous(labels = scales::percent)
-if (!is.null(snakemake@params$whitelist)){
+if (dim(mydata)[1] <= 96){
   p2 = p2 +theme(axis.text.x = element_text(angle = 90, hjust = 0))
 } else {
   p2=p2+theme(axis.text.x = element_blank())
